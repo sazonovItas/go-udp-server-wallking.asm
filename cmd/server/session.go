@@ -4,6 +4,7 @@ import (
 	"asm-game/server/game/player"
 	"fmt"
 	"sync"
+	"time"
 )
 
 type Session struct {
@@ -29,6 +30,7 @@ func (s *Session) NewPlayer(addr string, data []byte) {
 		fmt.Printf("New name %s for player:\n%s\n", string(data), pl.String())
 		s.Lock()
 		pl.Info.Name = string(data)
+		pl.Uptime = time.Now()
 		s.Unlock()
 	}
 }
@@ -42,6 +44,7 @@ func (s *Session) UpdatePlayer(addr string, data []byte) {
 
 	s.Lock()
 	pl.Info.Update(data)
+	pl.Uptime = time.Now()
 	s.Unlock()
 }
 
