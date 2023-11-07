@@ -94,7 +94,7 @@ func (sv *Server) SendToNew(addr string) {
 
 	log.Printf("Server sending join acception to addr %s\n", addr)
 	buf := make([]byte, 256)
-	buf[0] = 0xFF
+	buf[0] = 0x65
 	_, err := sv.ListenCon.WriteToUDP(buf, pl.Addr)
 	if err != nil {
 		log.Printf("Do not send join acception to player %s\n", addr)
