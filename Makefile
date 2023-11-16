@@ -1,3 +1,4 @@
-run: ./setupEnv.sh ./cmd/main.go
-	source ./setupEnv.sh
-	go run ./cmd/main.go
+SHELL=/usr/bin/env bash
+
+run: ./env.sh ./cmd/wallking-server/main.go
+	source ./env.sh && go run ./cmd/wallking-server/main.go

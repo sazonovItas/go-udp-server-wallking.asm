@@ -5,8 +5,8 @@ import (
 	"net"
 	"time"
 
-	game "asm-game/server/game"
 	convertBytes "asm-game/server/internal/convertbytes"
+	game "asm-game/server/internal/game"
 )
 
 type PlayerInfo struct {
@@ -14,27 +14,22 @@ type PlayerInfo struct {
 	Name string
 
 	// Player position
-	Pos game.Vec3
-	Yaw float32
+	Pos    game.Vec3
+	Angles game.Vec3
 }
 
 func (pli *PlayerInfo) String() string {
 	return fmt.Sprintf(
-		"Name: %s\nPlayer position - %s\nYaw angle - %7.2f",
+		"Name: %s\nPlayer position - %s\nAngles - %s",
 		pli.Name,
 		pli.Pos.String(),
-		pli.Yaw,
+		pli.Angles.String(),
 	)
 }
 
 func (pli *PlayerInfo) Update(data []byte) {
 	pli.Pos.ConvertFromBytes(data[:12])
-	v, ok := convertBytes.ByteSliceToT[float32](data[12:16])
-	if !ok {
-		fmt.Printf("Problem with converting float32 from byte slice\n")
-		return
-	}
-	pli.Yaw = v
+	pli.Angles.ConvertFromBytes(data[12:24])
 }
 
 func (pli *PlayerInfo) ConvertToBytes() []byte {
@@ -42,7 +37,9 @@ func (pli *PlayerInfo) ConvertToBytes() []byte {
 	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Pos.X)...)
 	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Pos.Y)...)
 	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Pos.Z)...)
-	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Yaw)...)
+	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Angles.X)...)
+	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Angles.Y)...)
+	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Angles.Z)...)
 	return buf
 }
 
@@ -62,8 +59,9 @@ func New(addr string, data []byte) *Player {
 
 type Player struct {
 	// address and uptime
-	Addr   *net.UDPAddr
-	Uptime time.Time
+	Addr          *net.UDPAddr
+	Uptime        time.Time
+	SessionUpTime int
 
 	// Player data
 	Info *PlayerInfo

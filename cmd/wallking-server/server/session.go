@@ -1,8 +1,9 @@
 package server
 
 import (
-	"asm-game/server/game/player"
+	"asm-game/server/internal/game/player"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 )
@@ -12,8 +13,9 @@ type Session struct {
 	sync.Mutex
 
 	// Container for players
-	CntPl   int
-	Players map[string]*player.Player
+	CntPl       int
+	SessionTime int
+	Players     map[string]*player.Player
 }
 
 func (s *Session) NewPlayer(addr string, data []byte) {
@@ -24,6 +26,7 @@ func (s *Session) NewPlayer(addr string, data []byte) {
 		s.Lock()
 		s.CntPl++
 		s.Players[addr] = pl
+		pl.SessionUpTime = s.SessionTime
 		s.Unlock()
 		fmt.Printf("New Player:\n%s\n", pl.String())
 	} else {
@@ -31,13 +34,13 @@ func (s *Session) NewPlayer(addr string, data []byte) {
 		s.Lock()
 		pl.Info.Name = string(data)
 		pl.Uptime = time.Now()
+		pl.SessionUpTime = s.SessionTime
 		s.Unlock()
 	}
 }
 
 func (s *Session) UpdatePlayer(addr string, data []byte) {
 	pl, ok := s.Players[addr]
-	ok = ok && !(pl == nil)
 	if !ok {
 		return
 	}
@@ -46,17 +49,33 @@ func (s *Session) UpdatePlayer(addr string, data []byte) {
 	pl.Info.Update(data)
 	pl.Uptime = time.Now()
 	s.Unlock()
+	log.Printf("%s", s.String())
 }
 
-func (s *Session) ExitPlayer(addr string, data []byte) {
-	pl, ok := s.Players[addr]
-	ok = ok && !(pl == nil)
+func (s *Session) ExitPlayer(addr string) {
+	_, ok := s.Players[addr]
 	if !ok {
 		return
 	}
 
 	s.Lock()
 	s.CntPl--
-	s.Players[addr] = nil
+	delete(s.Players, addr)
 	s.Unlock()
+}
+
+func (s *Session) String() string {
+	s.Lock()
+	defer s.Unlock()
+	var str string = fmt.Sprintf("Cnt players %d\n", s.CntPl)
+
+	for _, v := range s.Players {
+		if v == nil {
+			continue
+		}
+
+		str += fmt.Sprintf("%s\n", v.String())
+	}
+
+	return str
 }

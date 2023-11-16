@@ -1,7 +1,6 @@
 package convertBytes
 
 import (
-	"reflect"
 	"unsafe"
 )
 
@@ -25,7 +24,7 @@ func ByteSliceToTSlice[T Number](src []byte) []T {
 	}
 
 	var value T
-	length := len(src) / (int)(unsafe.Sizeof(reflect.TypeOf(value)))
+	length := len(src) / (int)(unsafe.Sizeof(value))
 	ptr := unsafe.Pointer(&src[0])
 	// It is important to keep in mind that Go garbage collector
 	// will not interact with this data, and that if src freed,
@@ -34,7 +33,7 @@ func ByteSliceToTSlice[T Number](src []byte) []T {
 }
 
 func TToByteSlice[T Number](src T) []byte {
-	length := (int)(unsafe.Sizeof(reflect.TypeOf(src)))
+	length := (int)(unsafe.Sizeof(src))
 
 	buf := make([]byte, length)
 	ptr := unsafe.Pointer(&buf[0])
@@ -47,7 +46,7 @@ func TSliceToByteSlice[E ~[]T, T Number](src E) []byte {
 	if len(src) == 0 {
 		return nil
 	}
-	length := (int)(unsafe.Sizeof(reflect.TypeOf(src[0])))
+	length := (int)(unsafe.Sizeof(src[0]))
 
 	buf := make([]byte, length*len(src))
 	for i := 0; i < len(src)*length; i += length {

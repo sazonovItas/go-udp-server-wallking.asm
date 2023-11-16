@@ -1,0 +1,6 @@
+env: "local" # local, dev
+udp_server:
+  address: "0.0.0.0"
+  port: "8829"
+  timeout: 1s
+  idle_timeout: 60s
