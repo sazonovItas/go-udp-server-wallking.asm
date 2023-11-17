@@ -48,14 +48,22 @@ func main() {
 		log.Fatalf("Error %s", err.Error())
 	}
 	log.Printf("Msg from %s: %s", addr.String(), buf[:n])
+	uptime, ok := convertBytes.ByteSliceToT[int32](buf[14:])
+	if !ok && string(buf[12:14]) == "Ok" {
+		return
+	}
 
 	buf = make([]byte, 0, 256)
 	buf = append(buf, convertBytes.TToByteSlice[int32](256)...)
 	buf = append(buf, []byte("WallKing")...)
 	buf = append(buf, []byte{00, 00, 00, 00}...)
+	buf = append(buf, convertBytes.TToByteSlice[int32](uptime)...)
 	buf = append(buf, convertBytes.TToByteSlice[float32](360.22)...)
 	buf = append(buf, convertBytes.TToByteSlice[float32](180.43)...)
 	buf = append(buf, convertBytes.TToByteSlice[float32](23.01)...)
+	buf = append(buf, convertBytes.TToByteSlice[float32](12.92)...)
+	buf = append(buf, convertBytes.TToByteSlice[float32](23.01)...)
+	buf = append(buf, convertBytes.TToByteSlice[float32](12.92)...)
 	buf = append(buf, convertBytes.TToByteSlice[float32](12.92)...)
 	buf = append(buf, convertBytes.TToByteSlice[float32](23.01)...)
 	buf = append(buf, convertBytes.TToByteSlice[float32](12.92)...)
@@ -74,9 +82,11 @@ func main() {
 		log.Fatalf("Cannot read from udp addr occured: %s", err)
 	}
 
-	cntPlayers, _ := convertBytes.ByteSliceToT[int32](buf[:4])
+	uptime, _ = convertBytes.ByteSliceToT[int32](buf[12:16])
+	log.Printf("Uptime: %d", uptime)
+	cntPlayers, _ := convertBytes.ByteSliceToT[int32](buf[16:20])
 	log.Printf("Count players: %d", cntPlayers)
-	flbuf := convertBytes.ByteSliceToTSlice[float32](buf[4:n])
+	flbuf := convertBytes.ByteSliceToTSlice[float32](buf[20:n])
 	for _, v := range flbuf {
 		log.Printf("%7.2f ", v)
 	}

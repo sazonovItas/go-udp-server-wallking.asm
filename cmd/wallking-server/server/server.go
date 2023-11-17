@@ -3,7 +3,6 @@ package server
 import (
 	"asm-game/server/internal/game/player"
 	"fmt"
-	"log"
 	"log/slog"
 	"net"
 	"os"
@@ -23,7 +22,7 @@ import (
 // [16..255] - name
 // UPDATE:
 // [16..19] - session upTime
-// [20..43] - position and angles of player;
+// [20..55] - position, angles and size of player;
 // EXIT:
 const (
 	PL_JOIN   int32 = 1
@@ -130,7 +129,7 @@ func (sv *Server) UpdatePlConn(addr string, data []byte) {
 		sv.session.Lock()
 		sv.session.SessionTime++
 		sv.session.Unlock()
-		if len(data) < 44 {
+		if len(data) < 56 {
 			sv.Logger.Debug("Wrong update message", slog.String("msg", string(data)))
 			return
 		}
@@ -148,15 +147,16 @@ func (sv *Server) SendToNew(addr string) {
 		return
 	}
 
-	log.Printf("Server sending join acception to addr %s\n", addr)
+	sv.Logger.Info("Server sending join acception", slog.String("address", addr))
 	buf := make([]byte, 0, 256)
 	buf = append(buf, convertBytes.TToByteSlice[int32](256)...)
 	buf = append(buf, []byte("WallKing")...)
 	buf = append(buf, []byte("Ok")...)
+	buf = append(buf, convertBytes.TToByteSlice[int32](int32(sv.session.SessionTime))...)
 	buf = buf[:256]
 	_, err := sv.ListenCon.WriteToUDP(buf, pl.Addr)
 	if err != nil {
-		log.Printf("Do not send join acception to player %s\n", addr)
+		sv.Logger.Error("Do not send join acception to player", slog.String("address", addr))
 		return
 	}
 }
@@ -174,6 +174,9 @@ func (sv *Server) SendToAll() {
 func (sv *Server) sendToPlayer(pl *player.Player, players []*player.Player) {
 	buf := make([]byte, 0, 256)
 
+	buf = append(buf, convertBytes.TToByteSlice[int32](256)...)
+	buf = append(buf, []byte("WallKing")...)
+	buf = append(buf, convertBytes.TToByteSlice[int32](int32(sv.session.SessionTime))...)
 	buf = append(buf, convertBytes.TToByteSlice[int32]((int32)(len(players))-1)...)
 	for _, v := range players {
 		if v != pl {
@@ -184,7 +187,7 @@ func (sv *Server) sendToPlayer(pl *player.Player, players []*player.Player) {
 	buf = buf[:256]
 	_, err := sv.ListenCon.WriteToUDP(buf, pl.Addr)
 	if err != nil {
-		log.Printf("Error to send data to Player with addr: %s", pl.Addr)
+		sv.Logger.Error("Error to send data to Player", slog.String("address", pl.Addr.String()))
 		return
 	}
 }

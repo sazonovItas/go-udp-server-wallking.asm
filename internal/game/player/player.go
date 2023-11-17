@@ -16,20 +16,23 @@ type PlayerInfo struct {
 	// Player position
 	Pos    game.Vec3
 	Angles game.Vec3
+	Size   game.Vec3
 }
 
 func (pli *PlayerInfo) String() string {
 	return fmt.Sprintf(
-		"Name: %s\nPlayer position - %s\nAngles - %s",
+		"Name: %s\nPlayer position - %s\nAngles - %s\nSize - %s",
 		pli.Name,
 		pli.Pos.String(),
 		pli.Angles.String(),
+		pli.Size.String(),
 	)
 }
 
 func (pli *PlayerInfo) Update(data []byte) {
 	pli.Pos.ConvertFromBytes(data[:12])
 	pli.Angles.ConvertFromBytes(data[12:24])
+	pli.Size.ConvertFromBytes(data[24:36])
 }
 
 func (pli *PlayerInfo) ConvertToBytes() []byte {
@@ -40,6 +43,9 @@ func (pli *PlayerInfo) ConvertToBytes() []byte {
 	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Angles.X)...)
 	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Angles.Y)...)
 	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Angles.Z)...)
+	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Size.X)...)
+	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Size.Y)...)
+	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Size.Z)...)
 	return buf
 }
 
@@ -61,7 +67,7 @@ type Player struct {
 	// address and uptime
 	Addr          *net.UDPAddr
 	Uptime        time.Time
-	SessionUpTime int
+	SessionUpTime int32
 
 	// Player data
 	Info *PlayerInfo

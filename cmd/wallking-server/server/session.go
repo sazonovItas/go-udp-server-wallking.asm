@@ -6,6 +6,8 @@ import (
 	"log"
 	"sync"
 	"time"
+
+	convertBytes "asm-game/server/internal/convertbytes"
 )
 
 type Session struct {
@@ -14,7 +16,7 @@ type Session struct {
 
 	// Container for players
 	CntPl       int
-	SessionTime int
+	SessionTime int32
 	Players     map[string]*player.Player
 }
 
@@ -46,8 +48,11 @@ func (s *Session) UpdatePlayer(addr string, data []byte) {
 	}
 
 	s.Lock()
-	pl.Info.Update(data)
-	pl.Uptime = time.Now()
+	uptime, ok := convertBytes.ByteSliceToT[int32](data[:4])
+	if ok && pl.SessionUpTime <= uptime {
+		pl.Info.Update(data[4:])
+		pl.Uptime = time.Now()
+	}
 	s.Unlock()
 	log.Printf("%s", s.String())
 }
