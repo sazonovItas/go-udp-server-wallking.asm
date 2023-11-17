@@ -1,13 +1,7 @@
-EXE = ./cmd/wallking-server/main.go
-TEST_EXE = ./tests/client/main.go
+EXE=./cmd/wallking-server/main.go
+TEST_EXE=./tests/client/main.go
 
-CONFIG_PATH = ./config/dev.yaml
-
-setWinEnv:
-	set CONFIG_PATH=$(CONFIG_PATH)
-
-setLinuxEnv: ./env.sh
-	export CONFIG_PATH=$(CONFIG_PATH)
+CONFIG_PATH=./config/dev.yaml
 
 run: $(EXE)
 	go run $(EXE)
