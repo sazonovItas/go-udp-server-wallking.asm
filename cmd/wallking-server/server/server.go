@@ -25,9 +25,9 @@ import (
 // [20..55] - position, angles and size of player;
 // EXIT:
 const (
-	PL_JOIN   int32 = 1
-	PL_UPDATE int32 = 0
-	PL_EXIT   int32 = -1
+	PlJoin   int32 = 1
+	PlUpdate int32 = 0
+	PlExit   int32 = -1
 )
 
 func New(log *slog.Logger, address string, port string) *Server {
@@ -75,7 +75,11 @@ func (sv *Server) Up() {
 
 func (sv *Server) Down() {
 	sv.Logger.Info("server is down", slog.String("time", time.Now().Format(time.UnixDate)))
-	sv.ListenCon.Close()
+	err := sv.ListenCon.Close()
+	if err != nil {
+		sv.Logger.Error("close listen connection", slog.String("error", err.Error()))
+		return
+	}
 }
 
 func (sv *Server) UpdatePlConn(addr string, data []byte) {
@@ -92,7 +96,7 @@ func (sv *Server) UpdatePlConn(addr string, data []byte) {
 			"Wrong format of data",
 			slog.String("address", addr),
 			slog.String("checksum", "wrong checksum"),
-			slog.Int("checksum", ((int)(checkSum))),
+			slog.Int("checksum", (int)(checkSum)),
 			slog.Int("len of data", len(data)),
 		)
 		return
@@ -118,14 +122,14 @@ func (sv *Server) UpdatePlConn(addr string, data []byte) {
 	}
 
 	switch state {
-	case PL_JOIN:
+	case PlJoin:
 		if len(data) < 17 {
 			sv.Logger.Debug("Wrong join message", slog.String("msg", string(data)))
 			return
 		}
 		sv.session.NewPlayer(addr, data[16:])
 		go sv.SendToNew(addr)
-	case PL_UPDATE:
+	case PlUpdate:
 		sv.session.Lock()
 		sv.session.SessionTime++
 		sv.session.Unlock()
@@ -135,7 +139,7 @@ func (sv *Server) UpdatePlConn(addr string, data []byte) {
 		}
 		sv.session.UpdatePlayer(addr, data[16:])
 		go sv.SendToAll()
-	case PL_EXIT:
+	case PlExit:
 		sv.session.ExitPlayer(addr)
 	}
 }
@@ -147,16 +151,16 @@ func (sv *Server) SendToNew(addr string) {
 		return
 	}
 
-	sv.Logger.Info("Server sending join acception", slog.String("address", addr))
+	sv.Logger.Info("Server sending join accepts", slog.String("address", addr))
 	buf := make([]byte, 0, 256)
 	buf = append(buf, convertBytes.TToByteSlice[int32](256)...)
 	buf = append(buf, []byte("WallKing")...)
 	buf = append(buf, []byte("Ok")...)
-	buf = append(buf, convertBytes.TToByteSlice[int32](int32(sv.session.SessionTime))...)
+	buf = append(buf, convertBytes.TToByteSlice[int32](sv.session.SessionTime)...)
 	buf = buf[:256]
 	_, err := sv.ListenCon.WriteToUDP(buf, pl.Addr)
 	if err != nil {
-		sv.Logger.Error("Do not send join acception to player", slog.String("address", addr))
+		sv.Logger.Error("Do not send join accepts to player", slog.String("address", addr))
 		return
 	}
 }
@@ -176,7 +180,7 @@ func (sv *Server) sendToPlayer(pl *player.Player, players []*player.Player) {
 
 	buf = append(buf, convertBytes.TToByteSlice[int32](256)...)
 	buf = append(buf, []byte("WallKing")...)
-	buf = append(buf, convertBytes.TToByteSlice[int32](int32(sv.session.SessionTime))...)
+	buf = append(buf, convertBytes.TToByteSlice[int32](sv.session.SessionTime)...)
 	buf = append(buf, convertBytes.TToByteSlice[int32]((int32)(len(players))-1)...)
 	for _, v := range players {
 		if v != pl {

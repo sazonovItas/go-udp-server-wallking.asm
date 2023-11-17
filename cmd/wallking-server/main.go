@@ -22,9 +22,9 @@ func main() {
 	}
 	_ = cfg
 
-	log := setupLogger(cfg.Env)
+	logger := setupLogger(cfg.Env)
 
-	sv := server.New(log, cfg.Address, cfg.Port)
+	sv := server.New(logger, cfg.Address, cfg.Port)
 	sv.Up()
 	defer sv.Down()
 
@@ -32,35 +32,32 @@ func main() {
 	for {
 		n, addr, err := sv.ListenCon.ReadFromUDP(buf)
 		if err != nil {
-			log.Error("Error to read from the socker", slog.String("error", err.Error()))
+			logger.Error("Error to read from the socker", slog.String("error", err.Error()))
 		}
 
-		// log.Debug(
-		// 	"Message",
-		// 	slog.String("address", addr.String()),
-		// 	slog.String("msg", string(buf[:n])),
-		// )
+		logger.Debug("message from socket", slog.String("msg", string(buf[:n])))
+
 		go sv.UpdatePlConn(addr.String(), buf[:n])
 	}
 }
 
 func setupLogger(env string) *slog.Logger {
-	var log *slog.Logger
+	var logger *slog.Logger
 
 	switch env {
 	case envLocal:
-		log = slog.New(
+		logger = slog.New(
 			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
 		)
 	case envDev:
-		log = slog.New(
+		logger = slog.New(
 			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
 		)
 	case envProd:
-		log = slog.New(
+		logger = slog.New(
 			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
 		)
 	}
 
-	return log
+	return logger
 }

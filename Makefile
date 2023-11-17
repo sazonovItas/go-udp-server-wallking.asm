@@ -1,4 +1,16 @@
-SHELL=/usr/bin/env bash
+EXE = ./cmd/wallking-server/main.go
+TEST_EXE = ./tests/client/main.go
 
-run: ./env.sh ./cmd/wallking-server/main.go
-	source ./env.sh && go run ./cmd/wallking-server/main.go
+CONFIG_PATH = ./config/dev.yaml
+
+setWinEnv:
+	set CONFIG_PATH=$(CONFIG_PATH)
+
+setLinuxEnv: ./env.sh
+	export CONFIG_PATH=$(CONFIG_PATH)
+
+run: $(EXE)
+	go run $(EXE)
+
+test: $(TEST_EXE)
+	go run $(TEST_EXE)

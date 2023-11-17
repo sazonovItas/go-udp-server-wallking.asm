@@ -86,8 +86,8 @@ func main() {
 	log.Printf("Uptime: %d", uptime)
 	cntPlayers, _ := convertBytes.ByteSliceToT[int32](buf[16:20])
 	log.Printf("Count players: %d", cntPlayers)
-	flbuf := convertBytes.ByteSliceToTSlice[float32](buf[20:n])
-	for _, v := range flbuf {
+	printBuf := convertBytes.ByteSliceToTSlice[float32](buf[20:n])
+	for _, v := range printBuf {
 		log.Printf("%7.2f ", v)
 	}
 	log.Printf("Udp message from %s: %s\n", addr, buf[:n])
