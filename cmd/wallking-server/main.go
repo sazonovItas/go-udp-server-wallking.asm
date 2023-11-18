@@ -2,11 +2,10 @@ package main
 
 import (
 	"asm-game/server/cmd/wallking-server/server"
+	config "asm-game/server/internal/config"
 	"log"
 	"log/slog"
 	"os"
-
-	config "asm-game/server/internal/config"
 )
 
 const (
@@ -16,6 +15,7 @@ const (
 )
 
 func main() {
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Error occured: %s", err.Error())
@@ -28,11 +28,13 @@ func main() {
 	sv.Up()
 	defer sv.Down()
 
-	buf := make([]byte, 256)
+	go sv.SendMessages()
+
 	for {
+		buf := make([]byte, 256)
 		n, addr, err := sv.ListenCon.ReadFromUDP(buf)
 		if err != nil {
-			logger.Error("Error to read from the socker", slog.String("error", err.Error()))
+			logger.Error("Error to read from the socket", slog.String("error", err.Error()))
 		}
 
 		logger.Debug("message from socket", slog.String("msg", string(buf[:n])))

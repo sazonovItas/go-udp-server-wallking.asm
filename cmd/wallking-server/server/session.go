@@ -48,8 +48,9 @@ func (s *Session) UpdatePlayer(addr string, data []byte) {
 	}
 
 	s.Lock()
-	uptime, ok := convertBytes.ByteSliceToT[int32](data[:4])
-	if ok && pl.SessionUpTime <= uptime {
+	_, ok = convertBytes.ByteSliceToT[int32](data[:4])
+	// && pl.SessionUpTime <= uptime
+	if ok {
 		pl.Info.Update(data[4:])
 		pl.Uptime = time.Now()
 	}
