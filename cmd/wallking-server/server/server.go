@@ -23,6 +23,7 @@ import (
 // UPDATE:
 // [16..19] - session upTime
 // [20..55] - position, angles and size of player;
+// [56..59] - player's texture
 // EXIT:
 const (
 	PlJoin   int32 = 1
@@ -133,7 +134,7 @@ func (sv *Server) UpdatePlConn(addr string, data []byte) {
 		sv.session.Lock()
 		sv.session.SessionTime++
 		sv.session.Unlock()
-		if len(data) < 56 {
+		if len(data) < 60 {
 			sv.Logger.Debug("Wrong update message", slog.String("msg", string(data)))
 			return
 		}
@@ -191,7 +192,10 @@ func (sv *Server) sendToPlayer(pl *player.Player, players []*player.Player) {
 	buf = buf[:256]
 	_, err := sv.ListenCon.WriteToUDP(buf, pl.Addr)
 	if err != nil {
-		sv.Logger.Error("Error to send data to Player", slog.String("address", pl.Addr.String()))
+		sv.Logger.Error(
+			"Error to send data to Player",
+			slog.String("address", pl.Addr.String()),
+		)
 		return
 	}
 }
