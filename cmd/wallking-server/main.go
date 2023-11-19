@@ -24,7 +24,7 @@ func main() {
 
 	logger := setupLogger(cfg.Env)
 
-	sv := server.New(logger, cfg.Address, cfg.Port)
+	sv := server.New(logger, cfg.UDPServer)
 	sv.Up()
 	defer sv.Down()
 

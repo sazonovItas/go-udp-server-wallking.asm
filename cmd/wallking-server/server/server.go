@@ -1,14 +1,13 @@
 package server
 
 import (
+	"asm-game/server/internal/config"
+	"asm-game/server/internal/game/msgqueue"
 	"asm-game/server/internal/game/player"
 	"asm-game/server/internal/game/session"
-	"fmt"
-	"github.com/zyedidia/generic/queue"
 	"log/slog"
 	"net"
 	"os"
-	"sync"
 	"time"
 
 	"golang.org/x/exp/maps"
@@ -34,42 +33,37 @@ const (
 	PlExit   int32 = -1
 )
 
-func New(log *slog.Logger, address string, port string) *Server {
-	listenAddr, err := net.ResolveUDPAddr("udp4", address+":"+port)
+func New(log *slog.Logger, cfgServer config.UDPServer) *Server {
+	listenAddr, err := net.ResolveUDPAddr("udp4", cfgServer.Address+":"+cfgServer.Port)
 	if err != nil {
-		fmt.Printf("Error occured while resolve udp addr: %s", err)
+		log.Error("Error occurred while resolve udp addr: %s", err.Error())
 		os.Exit(1)
 	}
 
 	return &Server{
-		msgQueue:   &MsgQueue{Queue: queue.New[Message]()},
-		Addr:       listenAddr,
-		ListenCon:  nil,
-		Logger:     log,
-		UpSendTime: time.Now(),
-		session:    &session.Session{CntPl: 0, SessionTime: 0, Players: map[string]*player.Player{}},
+		msgQueue:    msgqueue.New(),
+		Addr:        listenAddr,
+		ListenCon:   nil,
+		Logger:      log,
+		SendTimeout: cfgServer.Timeout,
+		PlTimeout:   cfgServer.IdleTimeout,
+		UpSendTime:  time.Now(),
+		session:     &session.Session{CntPl: 0, SessionTime: 0, Players: map[string]*player.Player{}},
 	}
 }
 
-type MsgQueue struct {
-	mu    sync.Mutex
-	Queue *queue.Queue[Message]
-}
-
 type Server struct {
-	msgQueue *MsgQueue
+	msgQueue *msgqueue.MsgQueue
 	// Server's address and listen connection
 	Addr      *net.UDPAddr
 	ListenCon *net.UDPConn
 	Logger    *slog.Logger
 
+	SendTimeout time.Duration
+	PlTimeout   time.Duration
+
 	UpSendTime time.Time
 	session    *session.Session
-}
-
-type Message struct {
-	Addr *net.UDPAddr
-	Msg  []byte
 }
 
 func (sv *Server) Up() {
@@ -170,14 +164,14 @@ func (sv *Server) SendToNew(addr string) {
 	buf = append(buf, []byte("Ok")...)
 	buf = append(buf, convertBytes.TToByteSlice[int32](sv.session.SessionTime)...)
 	buf = buf[:256]
-	msg := Message{
+	msg := msgqueue.Message{
 		Addr: pl.Addr,
 		Msg:  buf,
 	}
 
-	sv.msgQueue.mu.Lock()
+	sv.msgQueue.Lock()
 	sv.msgQueue.Queue.Enqueue(msg)
-	sv.msgQueue.mu.Unlock()
+	sv.msgQueue.Unlock()
 }
 
 func (sv *Server) SendToAll() {
@@ -185,11 +179,15 @@ func (sv *Server) SendToAll() {
 	players := maps.Values(sv.session.Players)
 	sv.session.Unlock()
 
-	sv.msgQueue.mu.Lock()
+	sv.msgQueue.Lock()
 	for _, pl := range players {
 		sv.sendToPlayer(pl, players)
+		if sv.UpSendTime.Sub(pl.Uptime).Seconds() > sv.PlTimeout.Seconds() {
+			sv.session.ExitPlayer(pl.Addr.String())
+		}
+
 	}
-	sv.msgQueue.mu.Unlock()
+	sv.msgQueue.Unlock()
 }
 
 func (sv *Server) sendToPlayer(pl *player.Player, players []*player.Player) {
@@ -206,7 +204,7 @@ func (sv *Server) sendToPlayer(pl *player.Player, players []*player.Player) {
 	}
 
 	buf = buf[:256]
-	msg := Message{
+	msg := msgqueue.Message{
 		Addr: pl.Addr,
 		Msg:  buf,
 	}
@@ -215,17 +213,17 @@ func (sv *Server) sendToPlayer(pl *player.Player, players []*player.Player) {
 
 func (sv *Server) SendMessages() {
 
-	svTime := time.Now()
+	sv.UpSendTime = time.Now()
 
 	for {
-		if time.Now().Sub(svTime).Milliseconds() > 15 {
-			svTime = time.Now()
+		if time.Now().Sub(sv.UpSendTime).Milliseconds() > sv.SendTimeout.Milliseconds() {
+			sv.UpSendTime = time.Now()
 			sv.session.Lock()
 			sv.session.SessionTime++
 			sv.session.Unlock()
 			go sv.SendToAll()
 		}
-		sv.msgQueue.mu.Lock()
+		sv.msgQueue.Lock()
 		for !sv.msgQueue.Queue.Empty() {
 			msg := sv.msgQueue.Queue.Dequeue()
 			_, err := sv.ListenCon.WriteToUDP(msg.Msg, msg.Addr)
@@ -234,10 +232,10 @@ func (sv *Server) SendMessages() {
 					"Error to send data to Player",
 					slog.String("address", msg.Addr.String()),
 				)
-				sv.msgQueue.mu.Unlock()
+				sv.msgQueue.Unlock()
 				return
 			}
 		}
-		sv.msgQueue.mu.Unlock()
+		sv.msgQueue.Unlock()
 	}
 }
