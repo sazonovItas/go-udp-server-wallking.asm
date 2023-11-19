@@ -2,9 +2,9 @@ package server
 
 import (
 	"asm-game/server/internal/config"
-	"asm-game/server/internal/game/msgqueue"
 	"asm-game/server/internal/game/player"
-	"asm-game/server/internal/game/session"
+	"asm-game/server/internal/server/msgqueue"
+	"asm-game/server/internal/server/session"
 	"log/slog"
 	"net"
 	"os"

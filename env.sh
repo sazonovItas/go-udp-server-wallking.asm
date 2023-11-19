@@ -1,2 +1,2 @@
 # default env variables
-export CONFIG_PATH=./config/local.yaml
+export CONFIG_PATH=./config/dev.yaml

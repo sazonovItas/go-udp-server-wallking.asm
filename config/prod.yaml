@@ -1,6 +1,6 @@
-env: "prod" # local, dev
+env: "prod"
 udp_server:
   address: "0.0.0.0"
   port: "8829"
-  timeout: 1s
-  idle_timeout: 60s
+  timeout: 20ms
+  idle_timeout: 15s
