@@ -1,4 +1,4 @@
-package server
+package session
 
 import (
 	"asm-game/server/internal/game/player"

@@ -37,9 +37,9 @@ func main() {
 			logger.Error("Error to read from the socket", slog.String("error", err.Error()))
 		}
 
-		logger.Debug("message from socket", slog.String("msg", string(buf[:n])))
+		//	logger.Debug("message from socket", slog.String("msg", string(buf[:n])))
 
-		go sv.UpdatePlConn(addr.String(), buf[:n])
+		go sv.HandleMsg(addr.String(), buf[:n])
 	}
 }
 

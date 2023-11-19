@@ -2,6 +2,7 @@ package server
 
 import (
 	"asm-game/server/internal/game/player"
+	"asm-game/server/internal/game/session"
 	"fmt"
 	"github.com/zyedidia/generic/queue"
 	"log/slog"
@@ -46,7 +47,7 @@ func New(log *slog.Logger, address string, port string) *Server {
 		ListenCon:  nil,
 		Logger:     log,
 		UpSendTime: time.Now(),
-		session:    &Session{CntPl: 0, SessionTime: 0, Players: map[string]*player.Player{}},
+		session:    &session.Session{CntPl: 0, SessionTime: 0, Players: map[string]*player.Player{}},
 	}
 }
 
@@ -63,7 +64,7 @@ type Server struct {
 	Logger    *slog.Logger
 
 	UpSendTime time.Time
-	session    *Session
+	session    *session.Session
 }
 
 type Message struct {
@@ -97,7 +98,7 @@ func (sv *Server) Down() {
 	}
 }
 
-func (sv *Server) UpdatePlConn(addr string, data []byte) {
+func (sv *Server) HandleMsg(addr string, data []byte) {
 	// check length of message
 	if len(data) < 4 {
 		sv.Logger.Debug("Wrong format of data")
@@ -128,7 +129,7 @@ func (sv *Server) UpdatePlConn(addr string, data []byte) {
 
 	// check state of the player
 	state, ok := convertBytes.ByteSliceToT[int32](data[12:16])
-	if !ok || (state != -1) && (state != 1) && (state != 0) {
+	if !ok || (state != PlExit) && (state != PlJoin) && (state != PlUpdate) {
 		sv.Logger.Debug(
 			"Wrong format of data",
 			slog.String("state", "wrong state"),
@@ -145,15 +146,11 @@ func (sv *Server) UpdatePlConn(addr string, data []byte) {
 		sv.session.NewPlayer(addr, data[16:])
 		go sv.SendToNew(addr)
 	case PlUpdate:
-		sv.session.Lock()
-		sv.session.SessionTime++
-		sv.session.Unlock()
 		if len(data) < 60 {
 			sv.Logger.Debug("Wrong update message", slog.String("msg", string(data)))
 			return
 		}
 		sv.session.UpdatePlayer(addr, data[16:])
-		go sv.SendToAll()
 	case PlExit:
 		sv.session.ExitPlayer(addr)
 	}
@@ -188,9 +185,11 @@ func (sv *Server) SendToAll() {
 	players := maps.Values(sv.session.Players)
 	sv.session.Unlock()
 
+	sv.msgQueue.mu.Lock()
 	for _, pl := range players {
 		sv.sendToPlayer(pl, players)
 	}
+	sv.msgQueue.mu.Unlock()
 }
 
 func (sv *Server) sendToPlayer(pl *player.Player, players []*player.Player) {
@@ -211,17 +210,23 @@ func (sv *Server) sendToPlayer(pl *player.Player, players []*player.Player) {
 		Addr: pl.Addr,
 		Msg:  buf,
 	}
-
-	sv.msgQueue.mu.Lock()
 	sv.msgQueue.Queue.Enqueue(msg)
-	sv.msgQueue.mu.Unlock()
 }
 
 func (sv *Server) SendMessages() {
 
+	svTime := time.Now()
+
 	for {
+		if time.Now().Sub(svTime).Milliseconds() > 15 {
+			svTime = time.Now()
+			sv.session.Lock()
+			sv.session.SessionTime++
+			sv.session.Unlock()
+			go sv.SendToAll()
+		}
 		sv.msgQueue.mu.Lock()
-		if !sv.msgQueue.Queue.Empty() {
+		for !sv.msgQueue.Queue.Empty() {
 			msg := sv.msgQueue.Queue.Dequeue()
 			_, err := sv.ListenCon.WriteToUDP(msg.Msg, msg.Addr)
 			if err != nil {
