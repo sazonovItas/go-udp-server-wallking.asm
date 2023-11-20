@@ -1,0 +1,6 @@
+env: "dev"
+udp_server:
+  address: "0.0.0.0"
+  port: "8829"
+  timeout: 5ms
+  idle_timeout: 15s
