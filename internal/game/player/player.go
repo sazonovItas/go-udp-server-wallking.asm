@@ -14,20 +14,23 @@ type Info struct {
 	Name string
 
 	// Player position
-	Pos    game.Vec3
-	Angles game.Vec3
-	Size   game.Vec3
-	Tex    int32
+	Pos         game.Vec3
+	Angles      game.Vec3
+	Size        game.Vec3
+	AmbientTex  int32
+	DiffuseTex  int32
+	SpecularTex int32
+	Shininess   float32
 }
 
 func (pli *Info) String() string {
 	return fmt.Sprintf(
-		"Name: %s\nPlayer position - %s\nAngles - %s\nSize - %s\nTex - %d",
+		"Name: %s\nPlayer position - %s\nAngles - %s\nSize - %s\nAmbientTex - %d, DiffuseTex - %d, SpecularTex - %d, Shininess - %7.2f",
 		pli.Name,
 		pli.Pos.String(),
 		pli.Angles.String(),
 		pli.Size.String(),
-		pli.Tex,
+		pli.AmbientTex, pli.DiffuseTex, pli.SpecularTex, pli.Shininess,
 	)
 }
 
@@ -35,7 +38,10 @@ func (pli *Info) Update(data []byte) {
 	pli.Pos.ConvertFromBytes(data[:12])
 	pli.Angles.ConvertFromBytes(data[12:24])
 	pli.Size.ConvertFromBytes(data[24:36])
-	pli.Tex, _ = convertBytes.ByteSliceToT[int32](data[36:40])
+	pli.AmbientTex, _ = convertBytes.ByteSliceToT[int32](data[36:40])
+	pli.DiffuseTex, _ = convertBytes.ByteSliceToT[int32](data[40:44])
+	pli.SpecularTex, _ = convertBytes.ByteSliceToT[int32](data[44:48])
+	pli.Shininess, _ = convertBytes.ByteSliceToT[float32](data[48:52])
 }
 
 func (pli *Info) ConvertToBytes() []byte {
@@ -49,7 +55,10 @@ func (pli *Info) ConvertToBytes() []byte {
 	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Size.X)...)
 	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Size.Y)...)
 	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Size.Z)...)
-	buf = append(buf, convertBytes.TToByteSlice[int32](pli.Tex)...)
+	buf = append(buf, convertBytes.TToByteSlice[int32](pli.AmbientTex)...)
+	buf = append(buf, convertBytes.TToByteSlice[int32](pli.DiffuseTex)...)
+	buf = append(buf, convertBytes.TToByteSlice[int32](pli.SpecularTex)...)
+	buf = append(buf, convertBytes.TToByteSlice[float32](pli.Shininess)...)
 	return buf
 }
 
@@ -68,9 +77,10 @@ func New(addr string, data []byte) *Player {
 	}
 
 	return &Player{
-		Addr:   listenAddr,
-		Uptime: time.Now(),
-		Info:   &Info{Name: string(buf)},
+		Addr:    listenAddr,
+		Uptime:  time.Now(),
+		Updated: false,
+		Info:    &Info{Name: string(buf)},
 	}
 }
 
@@ -79,6 +89,9 @@ type Player struct {
 	Addr          *net.UDPAddr
 	Uptime        time.Time
 	SessionUpTime int32
+
+	// Wait for the first update
+	Updated bool
 
 	// Player data
 	Info *Info

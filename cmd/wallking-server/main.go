@@ -31,13 +31,11 @@ func main() {
 	go sv.SendMessages()
 
 	for {
-		buf := make([]byte, 256)
+		buf := make([]byte, server.MSGSize)
 		n, addr, err := sv.ListenCon.ReadFromUDP(buf)
 		if err != nil {
 			logger.Error("Error to read from the socket", slog.String("error", err.Error()))
 		}
-
-		//	logger.Debug("message from socket", slog.String("msg", string(buf[:n])))
 
 		go sv.HandleMsg(addr.String(), buf[:n])
 	}

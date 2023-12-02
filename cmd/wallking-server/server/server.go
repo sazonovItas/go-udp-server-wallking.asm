@@ -17,20 +17,26 @@ import (
 
 // data [0..255]:
 // FOR ALL:
-// [0..3] - check sum;
-// [4..11] - WallKing
-// [12..15] - state of the player;
+// [0..1] - check sum;
+// [2..9] - WallKing
+// [10..10] - state of the player;
 // JOIN:
-// [16..255] - name
+// [11..511] - name
 // UPDATE:
-// [16..19] - session upTime
-// [20..55] - position, angles and size of player;
-// [56..59] - player's texture
+// [11..14] - session upTime
+// [15..50] - position, angles and size of player;
+// [51..54] - ambient texture
+// [55..68] - diffuse texture
+// [69..62] - specular texture
+// [63..66] - shininess
 // EXIT:
 const (
-	PlJoin   int32 = 1
-	PlUpdate int32 = 0
-	PlExit   int32 = -1
+	PlJoin   int8 = 1
+	PlUpdate int8 = 0
+	PlExit   int8 = -1
+
+	// MSGSize - msg size
+	MSGSize int16 = 512
 )
 
 func New(log *slog.Logger, cfgServer config.UDPServer) *Server {
@@ -53,7 +59,9 @@ func New(log *slog.Logger, cfgServer config.UDPServer) *Server {
 }
 
 type Server struct {
+	// Message queue
 	msgQueue *msgqueue.MsgQueue
+
 	// Server's address and listen connection
 	Addr      *net.UDPAddr
 	ListenCon *net.UDPConn
@@ -94,14 +102,14 @@ func (sv *Server) Down() {
 
 func (sv *Server) HandleMsg(addr string, data []byte) {
 	// check length of message
-	if len(data) < 4 {
+	if len(data) < 2 {
 		sv.Logger.Debug("Wrong format of data")
 		return
 	}
 
 	// check checkSum
-	checkSum, ok := convertBytes.ByteSliceToT[int32](data[:4])
-	if !ok || checkSum != (int32)(len(data)) {
+	checkSum, ok := convertBytes.ByteSliceToT[int16](data[:4])
+	if !ok || checkSum != (int16)(len(data)) {
 		sv.Logger.Debug(
 			"Wrong format of data",
 			slog.String("address", addr),
@@ -113,7 +121,7 @@ func (sv *Server) HandleMsg(addr string, data []byte) {
 	}
 
 	// check game name
-	if len(data) < 11 && string(data[4:11]) != "WallKing" {
+	if len(data) < 10 && string(data[2:10]) != "WallKing" {
 		sv.Logger.Debug(
 			"Wrong format of data",
 			slog.String("WallKing", "wrong sync game name"),
@@ -122,7 +130,7 @@ func (sv *Server) HandleMsg(addr string, data []byte) {
 	}
 
 	// check state of the player
-	state, ok := convertBytes.ByteSliceToT[int32](data[12:16])
+	state, ok := convertBytes.ByteSliceToT[int8](data[10:11])
 	if !ok || (state != PlExit) && (state != PlJoin) && (state != PlUpdate) {
 		sv.Logger.Debug(
 			"Wrong format of data",
@@ -133,18 +141,18 @@ func (sv *Server) HandleMsg(addr string, data []byte) {
 
 	switch state {
 	case PlJoin:
-		if len(data) < 17 {
+		if len(data) < 11 {
 			sv.Logger.Debug("Wrong join message", slog.String("msg", string(data)))
 			return
 		}
-		sv.session.NewPlayer(addr, data[16:])
-		go sv.SendToNew(addr)
+		sv.session.NewPlayer(addr, data[11:])
+		sv.SendToNew(addr)
 	case PlUpdate:
-		if len(data) < 60 {
+		if len(data) < 66 {
 			sv.Logger.Debug("Wrong update message", slog.String("msg", string(data)))
 			return
 		}
-		sv.session.UpdatePlayer(addr, data[16:])
+		sv.session.UpdatePlayer(addr, data[11:])
 	case PlExit:
 		sv.session.ExitPlayer(addr)
 	}
@@ -158,12 +166,12 @@ func (sv *Server) SendToNew(addr string) {
 	}
 
 	sv.Logger.Info("Server sending join accepts", slog.String("address", addr))
-	buf := make([]byte, 0, 256)
-	buf = append(buf, convertBytes.TToByteSlice[int32](256)...)
+	buf := make([]byte, 0, MSGSize)
+	buf = append(buf, convertBytes.TToByteSlice[int16](MSGSize)...)
 	buf = append(buf, []byte("WallKing")...)
-	buf = append(buf, []byte("Ok")...)
+	buf = append(buf, convertBytes.TToByteSlice[int16](200)...)
 	buf = append(buf, convertBytes.TToByteSlice[int32](sv.session.SessionTime)...)
-	buf = buf[:256]
+	buf = buf[:MSGSize]
 	msg := msgqueue.Message{
 		Addr: pl.Addr,
 		Msg:  buf,
@@ -181,29 +189,30 @@ func (sv *Server) SendToAll() {
 
 	sv.msgQueue.Lock()
 	for _, pl := range players {
-		sv.sendToPlayer(pl, players)
 		if sv.UpSendTime.Sub(pl.Uptime).Seconds() > sv.PlTimeout.Seconds() {
 			sv.session.ExitPlayer(pl.Addr.String())
 		}
-
+		if pl.Updated {
+			sv.sendToPlayer(pl, players)
+		}
 	}
 	sv.msgQueue.Unlock()
 }
 
 func (sv *Server) sendToPlayer(pl *player.Player, players []*player.Player) {
-	buf := make([]byte, 0, 256)
+	buf := make([]byte, 0, MSGSize)
 
-	buf = append(buf, convertBytes.TToByteSlice[int32](256)...)
+	buf = append(buf, convertBytes.TToByteSlice[int16](MSGSize)...)
 	buf = append(buf, []byte("WallKing")...)
 	buf = append(buf, convertBytes.TToByteSlice[int32](sv.session.SessionTime)...)
 	buf = append(buf, convertBytes.TToByteSlice[int32]((int32)(len(players))-1)...)
 	for _, v := range players {
-		if v.Addr.String() != pl.Addr.String() {
+		if v.Addr.String() != pl.Addr.String() && v.Updated {
 			buf = append(buf, v.Info.ConvertToBytes()...)
 		}
 	}
 
-	buf = buf[:256]
+	buf = buf[:MSGSize]
 	msg := msgqueue.Message{
 		Addr: pl.Addr,
 		Msg:  buf,
